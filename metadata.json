@@ -1,0 +1,5 @@
+{
+  "name": "DSA Streak Tracker",
+  "description": "A motivational tool to help you build a consistent habit of solving Data Structures and Algorithms problems daily. Track your progress with a visual heatmap and watch your streak grow.",
+  "requestFramePermissions": []
+}
