@@ -74,7 +74,15 @@ const Layout: React.FC = () => {
             case 'submissions':
                 return <SubmissionsPage submissions={submissions} onDataRefresh={fetchData} />;
             case 'profile':
-                return <ProfilePage profile={profile} onDataRefresh={fetchData} onSignOut={signOut} />;
+                return (
+                    <ProfilePage 
+                        profile={profile} 
+                        user={user}
+                        totalSubmissions={submissions.length}
+                        onDataRefresh={fetchData} 
+                        onSignOut={signOut} 
+                    />
+                );
             default:
                 return null;
         }

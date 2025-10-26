@@ -2,15 +2,33 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Profile } from '../types';
+import { User } from '@supabase/supabase-js';
+import { format } from 'date-fns';
 
 interface ProfilePageProps {
     profile: Profile | null;
+    user: User | null;
+    totalSubmissions: number;
     onDataRefresh: () => void;
     onSignOut: () => void;
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ profile, onDataRefresh, onSignOut }) => {
-    const { user } = useAuth();
+const getInitials = (name?: string | null, email?: string | null): string => {
+    if (name && name.trim()) {
+      const parts = name.trim().split(' ');
+      if (parts.length > 1) {
+        return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+      }
+      return name.slice(0, 2).toUpperCase();
+    }
+    if (email) {
+      return email[0].toUpperCase();
+    }
+    return 'U';
+};
+
+
+const ProfilePage: React.FC<ProfilePageProps> = ({ profile, user, totalSubmissions, onDataRefresh, onSignOut }) => {
     const [newUsername, setNewUsername] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
     const [updateMessage, setUpdateMessage] = useState('');
@@ -47,49 +65,89 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profile, onDataRefresh, onSig
             setTimeout(() => setUpdateMessage(''), 3000);
         }
     };
+    
+    const cardStyles = "bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700";
 
     return (
-        <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
+        <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
             <header className="mb-8">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-100">Profile Settings</h1>
-                <p className="text-gray-400 mt-1">Manage your account details.</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-100">My Profile</h1>
+                <p className="text-gray-400 mt-1">Your personal DSA journey dashboard.</p>
             </header>
 
-            <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700 mb-8">
-                <h2 className="text-xl font-bold mb-4">Update Username</h2>
-                <form onSubmit={handleUsernameUpdate} className="space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        <div className="w-full sm:w-auto flex-grow">
-                            <label htmlFor="username" className="sr-only">Username</label>
-                            <input
-                                id="username"
-                                type="text"
-                                value={newUsername}
-                                onChange={(e) => setNewUsername(e.target.value)}
-                                placeholder="Enter your username"
-                                className="w-full bg-gray-900/70 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-                            />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Column */}
+                <div className="lg:col-span-1 space-y-6">
+                    <div className={cardStyles}>
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-24 h-24 rounded-full bg-teal-500/20 flex items-center justify-center mb-4 border-2 border-teal-500">
+                                <span className="text-4xl font-bold text-teal-300">{getInitials(profile?.username, user?.email)}</span>
+                            </div>
+                            <h2 className="text-xl font-bold text-white truncate">{profile?.username || 'Anonymous User'}</h2>
+                            <p className="text-sm text-gray-400 truncate">{user?.email}</p>
+                            <p className="text-xs text-gray-500 mt-2">
+                                Member since {user?.created_at ? format(new Date(user.created_at), 'MMMM yyyy') : '...'}
+                            </p>
                         </div>
-                        <button
-                            type="submit"
-                            disabled={isUpdating || newUsername.trim() === (profile?.username || '') || !newUsername.trim()}
-                            className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-gray-800 disabled:bg-gray-600 disabled:cursor-not-allowed"
-                        >
-                            {isUpdating ? 'Saving...' : 'Save Username'}
+                    </div>
+                    <div className={cardStyles}>
+                         <h3 className="text-lg font-bold mb-4 text-gray-200">Statistics</h3>
+                         <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400">Current Streak</span>
+                                <span className="font-bold text-white text-lg">{profile?.current_streak ?? 0} days</span>
+                            </div>
+                             <div className="flex justify-between items-center">
+                                <span className="text-gray-400">Longest Streak</span>
+                                <span className="font-bold text-white text-lg">{profile?.longest_streak ?? 0} days</span>
+                            </div>
+                             <div className="flex justify-between items-center">
+                                <span className="text-gray-400">Total Submissions</span>
+                                <span className="font-bold text-white text-lg">{totalSubmissions}</span>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="lg:col-span-2 space-y-6">
+                     <div className={cardStyles}>
+                        <h3 className="text-lg font-bold mb-4 text-gray-200">Update Username</h3>
+                        <form onSubmit={handleUsernameUpdate} className="space-y-4">
+                            <div>
+                                <label htmlFor="username" className="block text-sm font-medium text-gray-400 mb-1">Username</label>
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                    <input
+                                        id="username"
+                                        type="text"
+                                        value={newUsername}
+                                        onChange={(e) => setNewUsername(e.target.value)}
+                                        placeholder="Enter your username"
+                                        className="w-full bg-gray-900/70 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={isUpdating || newUsername.trim() === (profile?.username || '') || !newUsername.trim()}
+                                        className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 focus:ring-offset-gray-800 disabled:bg-gray-700 disabled:cursor-not-allowed"
+                                    >
+                                        {isUpdating ? 'Saving...' : 'Save'}
+                                    </button>
+                                </div>
+                            </div>
+                            {updateMessage && <p className={`text-sm mt-2 ${updateMessage.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>{updateMessage}</p>}
+                        </form>
+                    </div>
+                    
+                    <div className={cardStyles}>
+                         <h3 className="text-lg font-bold mb-4 text-gray-200">Account Actions</h3>
+                         <button 
+                            onClick={onSignOut} 
+                            className="text-sm font-medium text-red-300 hover:text-red-200 bg-red-600/20 px-4 py-2 rounded-lg transition-colors border border-red-500/50 hover:border-red-500/80"
+                         >
+                            Sign Out
                         </button>
                     </div>
-                    {updateMessage && <p className={`text-sm mt-2 ${updateMessage.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>{updateMessage}</p>}
-                </form>
-            </div>
-            
-            <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700">
-                 <h2 className="text-xl font-bold mb-4">Account Actions</h2>
-                 <button 
-                    onClick={onSignOut} 
-                    className="text-sm font-medium text-red-400 hover:text-red-300 bg-red-900/30 px-4 py-2 rounded-lg transition-colors border border-red-700 hover:border-red-600"
-                 >
-                    Sign Out
-                </button>
+                </div>
             </div>
         </div>
     );
