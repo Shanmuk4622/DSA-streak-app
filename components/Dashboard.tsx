@@ -1,14 +1,7 @@
-import React, { useState, useEffect, useCallback, FormEvent, useMemo } from 'react';
-import { supabase } from '../services/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { format } from 'date-fns';
+import React, { useMemo } from 'react';
 import CalendarHeatmap from './CalendarHeatmap';
-import SubmissionModal from './SubmissionModal';
-import SubmissionLog from './SubmissionLog';
-import { Database } from '../types';
-
-type Profile = Database['public']['Tables']['profiles']['Row'];
-export type Submission = Database['public']['Tables']['submissions']['Row'];
+import { Profile, Submission } from '../types';
+import { format } from 'date-fns';
 
 const FireIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -74,229 +67,88 @@ const PieChart = ({ data }: { data: { name: string; value: number; color: string
     );
 };
 
+interface DashboardProps {
+    profile: Profile | null;
+    submissions: Submission[];
+}
 
-const Dashboard: React.FC = () => {
-    const { user, signOut } = useAuth();
-    const [profile, setProfile] = useState<Profile | null>(null);
-    const [submissionDates, setSubmissionDates] = useState<Set<string>>(new Set());
-    const [submissionHistory, setSubmissionHistory] = useState<Submission[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [hasLoggedToday, setHasLoggedToday] = useState(false);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [submissionToEdit, setSubmissionToEdit] = useState<Submission | null>(null);
-    const [newUsername, setNewUsername] = useState('');
-    const [isUpdating, setIsUpdating] = useState(false);
-    const [updateMessage, setUpdateMessage] = useState('');
-
-    const fetchData = useCallback(async () => {
-        if (!user) return;
-        setLoading(true);
-        setError(null);
-
-        try {
-            const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('username, current_streak, longest_streak')
-                .eq('id', user.id)
-                .single();
-
-            if (profileError && profileError.code !== 'PGRST116') throw profileError;
-            if (profileData) {
-                setProfile(profileData);
-                setNewUsername(profileData.username || '');
-            }
-
-            const { data: submissionData, error: submissionError } = await supabase
-                .from('submissions')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('date', { ascending: false });
-
-            if (submissionError) throw submissionError;
-
-            const dates = new Set(submissionData.map(s => s.date));
-            setSubmissionDates(dates);
-            setSubmissionHistory(submissionData);
-            
-            const todayUTC = format(new Date(), 'yyyy-MM-dd');
-            setHasLoggedToday(dates.has(todayUTC));
-
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }, [user]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    const handleOpenEditModal = (submission: Submission) => {
-        setSubmissionToEdit(submission);
-        setIsModalOpen(true);
-    };
+const Dashboard: React.FC<DashboardProps> = ({ profile, submissions }) => {
+    const submissionDates = useMemo(() => new Set(submissions.map(s => s.date)), [submissions]);
     
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setSubmissionToEdit(null);
-    };
-
-    const handleDeleteSubmission = async (submissionId: number) => {
-        if (window.confirm('Are you sure you want to delete this submission? This action cannot be undone.')) {
-            try {
-                const { error: deleteError } = await supabase.from('submissions').delete().eq('id', submissionId);
-                if (deleteError) throw deleteError;
-                // Note: The streak logic is handled by a backend trigger. Deleting may not automatically reverse a streak.
-                // For this project, we'll just refetch the data.
-                await fetchData();
-            } catch (err: any) {
-                setError(`Failed to delete submission: ${err.message}`);
-            }
-        }
-    };
+    const hasLoggedToday = useMemo(() => {
+        const todayUTC = format(new Date(), 'yyyy-MM-dd');
+        return submissionDates.has(todayUTC);
+    }, [submissionDates]);
     
     const difficultyCounts = useMemo(() => {
         const counts = { Easy: 0, Medium: 0, Hard: 0 };
-        submissionHistory.forEach(s => {
-            counts[s.difficulty]++;
+        submissions.forEach(s => {
+            if (counts[s.difficulty] !== undefined) {
+               counts[s.difficulty]++;
+            }
         });
         return [
             { name: 'Easy', value: counts.Easy, color: '#22c55e' }, // green-500
             { name: 'Medium', value: counts.Medium, color: '#eab308' }, // yellow-500
             { name: 'Hard', value: counts.Hard, color: '#ef4444' }, // red-500
         ];
-    }, [submissionHistory]);
+    }, [submissions]);
 
-
-    const handleUsernameUpdate = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!user || !newUsername.trim() || newUsername === profile?.username) {
-            return;
-        }
-
-        setIsUpdating(true);
-        setUpdateMessage('');
-
-        try {
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ username: newUsername.trim() })
-                .eq('id', user.id);
-
-            if (updateError) throw updateError;
-
-            setUpdateMessage('Username updated successfully!');
-            await fetchData(); // Refresh data to show new username in header
-        } catch (err: any) {
-            setUpdateMessage(`Error: ${err.message}`);
-        } finally {
-            setIsUpdating(false);
-            setTimeout(() => setUpdateMessage(''), 3000); // Clear message after 3 seconds
-        }
-    };
-
-
-    if (loading) {
-        return <div className="flex justify-center items-center h-screen"><div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-teal-500"></div></div>;
-    }
 
     return (
-        <>
-            <SubmissionModal
-                isOpen={isModalOpen}
-                onClose={handleCloseModal}
-                onSuccess={() => {
-                    handleCloseModal();
-                    fetchData(); // Refresh all data on new submission
-                }}
-                submissionToEdit={submissionToEdit}
-            />
-            <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
-                <header className="flex justify-between items-center mb-8">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-100">
-                        {profile?.username ? `${profile.username}'s DSA Journey` : 'My DSA Journey'}
-                    </h1>
-                    <button onClick={signOut} className="text-sm font-medium text-gray-400 hover:text-white bg-gray-800/80 px-4 py-2 rounded-lg transition-colors border border-gray-700 hover:border-gray-600">
-                        Sign Out
-                    </button>
-                </header>
-                
-                {error && <div className="bg-red-900 border border-red-600 text-red-100 px-4 py-3 rounded-md mb-6" role="alert">{error}</div>}
-
-                <main>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="md:col-span-1 bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl flex items-center space-x-4 border border-gray-700 transition-all duration-300 hover:border-amber-500/30 hover:bg-gray-800">
-                            <FireIcon />
-                            <div>
-                                <p className="text-gray-400 text-sm">Current Streak</p>
-                                <p className="text-4xl font-bold text-white">{profile?.current_streak ?? 0} days</p>
-                            </div>
-                        </div>
-                        <div className="md:col-span-1 bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl flex items-center space-x-4 border border-gray-700 transition-all duration-300 hover:border-yellow-400/30 hover:bg-gray-800">
-                            <TrophyIcon />
-                            <div>
-                                <p className="text-gray-400 text-sm">Longest Streak</p>
-                                <p className="text-4xl font-bold text-white">{profile?.longest_streak ?? 0} days</p>
-                            </div>
-                        </div>
-                        <div className="md:col-span-1 bg-teal-800/30 border border-teal-600 p-6 rounded-xl flex items-center justify-center">
-                            <button 
-                                onClick={() => setIsModalOpen(true)}
-                                disabled={hasLoggedToday}
-                                className="w-full h-full text-lg font-bold bg-teal-600 text-white rounded-lg px-6 py-4 transition-transform transform hover:scale-105 disabled:bg-teal-800 disabled:cursor-not-allowed disabled:transform-none disabled:opacity-70 flex items-center justify-center"
-                            >
-                                {hasLoggedToday ? <><CheckIcon /> Completed Today!</> : "Log New Submission"}
-                            </button>
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
+            <header className="mb-8">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-100">
+                    {profile?.username ? `Welcome back, ${profile.username}!` : 'Welcome to your DSA Journey'}
+                </h1>
+                <p className="text-gray-400 mt-1">Here's a snapshot of your progress.</p>
+            </header>
+            
+            <main>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl flex items-center space-x-4 border border-gray-700 transition-all duration-300 hover:border-amber-500/30 hover:bg-gray-800">
+                        <FireIcon />
+                        <div>
+                            <p className="text-gray-400 text-sm">Current Streak</p>
+                            <p className="text-4xl font-bold text-white">{profile?.current_streak ?? 0} days</p>
                         </div>
                     </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                         <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700">
-                            <h2 className="text-xl font-bold mb-4">Profile Settings</h2>
-                            <form onSubmit={handleUsernameUpdate} className="space-y-4">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                    <div className="w-full sm:w-auto flex-grow">
-                                        <label htmlFor="username" className="sr-only">Username</label>
-                                        <input
-                                            id="username"
-                                            type="text"
-                                            value={newUsername}
-                                            onChange={(e) => setNewUsername(e.target.value)}
-                                            placeholder="Enter your username"
-                                            className="w-full bg-gray-900/70 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={isUpdating || newUsername.trim() === (profile?.username || '') || !newUsername.trim()}
-                                        className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-gray-800 disabled:bg-gray-600 disabled:cursor-not-allowed"
-                                    >
-                                        {isUpdating ? 'Saving...' : 'Save Username'}
-                                    </button>
+                    <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl flex items-center space-x-4 border border-gray-700 transition-all duration-300 hover:border-yellow-400/30 hover:bg-gray-800">
+                        <TrophyIcon />
+                        <div>
+                            <p className="text-gray-400 text-sm">Longest Streak</p>
+                            <p className="text-4xl font-bold text-white">{profile?.longest_streak ?? 0} days</p>
+                        </div>
+                    </div>
+                    <div className={`p-6 rounded-xl flex items-center justify-center border ${hasLoggedToday ? 'bg-teal-800/30 border-teal-600' : 'bg-gray-800/50 border-gray-700'}`}>
+                        <div className="text-center">
+                            {hasLoggedToday ? (
+                                <div className="flex items-center text-lg font-bold text-teal-300">
+                                    <CheckIcon />
+                                    <span>Completed Today!</span>
                                 </div>
-                                 {updateMessage && <p className={`text-sm mt-2 ${updateMessage.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>{updateMessage}</p>}
-                            </form>
-                        </div>
-                        <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700">
-                             <h2 className="text-xl font-bold mb-4">Progress Snapshot</h2>
-                             <PieChart data={difficultyCounts} />
+                            ) : (
+                                <div>
+                                    <p className="text-lg font-bold text-gray-200">Log today's progress</p>
+                                    <p className="text-sm text-gray-400">Head to the Submissions tab.</p>
+                                 </div>
+                            )}
                         </div>
                     </div>
+                </div>
 
-                    <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700 mb-8">
+                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
+                    <div className="lg:col-span-3 bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700">
                         <h2 className="text-xl font-bold mb-4">Contribution Heatmap</h2>
                         <CalendarHeatmap submissionDates={submissionDates} />
                     </div>
-
-                    <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700">
-                        <h2 className="text-xl font-bold mb-4">Submission Log</h2>
-                        <SubmissionLog submissions={submissionHistory} onEdit={handleOpenEditModal} onDelete={handleDeleteSubmission} />
+                     <div className="lg:col-span-2 bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700">
+                         <h2 className="text-xl font-bold mb-4">Progress Snapshot</h2>
+                         <PieChart data={difficultyCounts} />
                     </div>
-                </main>
-            </div>
-        </>
+                </div>
+            </main>
+        </div>
     );
 };
 

@@ -2,8 +2,7 @@ import React, { useState, FormEvent, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { format } from 'date-fns';
-import { Database } from '../types';
-import { Submission } from './Dashboard';
+import { Database, Submission } from '../types';
 
 type SubmissionInsert = Database['public']['Tables']['submissions']['Insert'];
 type SubmissionUpdate = Database['public']['Tables']['submissions']['Update'];
