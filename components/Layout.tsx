@@ -110,9 +110,14 @@ const Layout: React.FC = () => {
                     </button>
                  </div>
             </aside>
-            <main className="flex-1 overflow-y-auto">
-                {renderView()}
-            </main>
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <main className="flex-1 overflow-y-auto">
+                    {renderView()}
+                </main>
+                <footer className="text-center py-3 px-4 text-gray-500 text-sm border-t border-gray-700 bg-gray-900">
+                    Every problem solved is another star in your constellation of knowledge.
+                </footer>
+            </div>
         </div>
     );
 };

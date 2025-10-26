@@ -1,7 +1,7 @@
 import React from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
-import AuthComponent from './components/Auth';
+import LandingPage from './components/LandingPage';
 
 const AppContent: React.FC = () => {
   const { session, loading } = useAuth();
@@ -15,8 +15,8 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen w-full text-gray-100">
-      {!session ? <AuthComponent /> : <Layout />}
+    <div className="w-full text-gray-100">
+      {!session ? <LandingPage /> : <Layout />}
     </div>
   );
 };
