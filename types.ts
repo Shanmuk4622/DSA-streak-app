@@ -1,4 +1,3 @@
-
 export type Json =
   | string
   | number
@@ -47,18 +46,33 @@ export interface Database {
           created_at: string
           user_id: string
           date: string
+          problem_name: string
+          link: string | null
+          difficulty: 'Easy' | 'Medium' | 'Hard'
+          platform: string | null
+          description: string | null
         }
         Insert: {
           id?: number
           created_at?: string
           user_id: string
           date: string
+          problem_name: string
+          link?: string | null
+          difficulty: 'Easy' | 'Medium' | 'Hard'
+          platform?: string | null
+          description?: string | null
         }
         Update: {
           id?: number
           created_at?: string
           user_id?: string
           date?: string
+          problem_name?: string
+          link?: string | null
+          difficulty?: 'Easy' | 'Medium' | 'Hard'
+          platform?: string | null
+          description?: string | null
         }
         Relationships: [
           {
