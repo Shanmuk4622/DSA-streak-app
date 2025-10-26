@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { format, startOfDay, addDays, getDay, differenceInDays } from 'date-fns';
 
@@ -9,7 +8,7 @@ interface CalendarHeatmapProps {
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({ submissionDates }) => {
-  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, date: '' });
+  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, date: '', count: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
   const today = startOfDay(new Date());
@@ -21,11 +20,15 @@ const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({ submissionDates }) =>
   const handleMouseEnter = (day: Date, e: React.MouseEvent) => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
+      const count = submissionDates.has(format(day, 'yyyy-MM-dd')) ? 1 : 0;
+      const contributionsText = count === 1 ? '1 contribution' : 'No contributions';
+      
       setTooltip({
         show: true,
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
-        date: format(day, 'MMMM d, yyyy'),
+        date: `${contributionsText} on ${format(day, 'MMMM d, yyyy')}`,
+        count: count,
       });
     }
   };
@@ -34,22 +37,22 @@ const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({ submissionDates }) =>
     setTooltip({ ...tooltip, show: false });
   };
   
-  const getIntensityClass = (date: Date) => {
+  const getCellClass = (date: Date) => {
     const formattedDate = format(date, 'yyyy-MM-dd');
     if (submissionDates.has(formattedDate)) {
-        return 'bg-emerald-500'; // Active day
+        return 'bg-teal-400'; // Active day
     }
-    return 'bg-gray-700'; // Inactive day
+    return 'bg-gray-800'; // Inactive day
   };
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative overflow-x-auto">
       {tooltip.show && (
         <div
           className="tooltip"
           style={{
             left: `${tooltip.x + 15}px`,
-            top: `${tooltip.y - 30}px`,
+            top: `${tooltip.y - 40}px`,
             visibility: 'visible',
             opacity: 1,
           }}
@@ -57,19 +60,16 @@ const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({ submissionDates }) =>
           {tooltip.date}
         </div>
       )}
-      <div className="flex justify-between text-xs text-gray-400 mb-2 px-2">
+      <div className="flex justify-between text-xs text-gray-400 mb-2 px-2" style={{maxWidth: '680px'}}>
          <span>{format(yearAgo, 'MMM')}</span>
-         <span></span><span></span><span></span>
-         <span>{format(addDays(yearAgo, 90), 'MMM')}</span>
-         <span></span><span></span><span></span>
-         <span>{format(addDays(yearAgo, 180), 'MMM')}</span>
-         <span></span><span></span><span></span>
-         <span>{format(addDays(yearAgo, 270), 'MMM')}</span>
-         <span></span>
+         <span>{format(addDays(yearAgo, 75), 'MMM')}</span>
+         <span>{format(addDays(yearAgo, 150), 'MMM')}</span>
+         <span>{format(addDays(yearAgo, 225), 'MMM')}</span>
+         <span>{format(addDays(yearAgo, 300), 'MMM')}</span>
       </div>
       <div className="grid grid-flow-col grid-rows-7 gap-1">
         {Array.from({ length: firstDayOffset }).map((_, i) => (
-          <div key={`empty-${i}`} className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <div key={`empty-${i}`} className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
         ))}
         {days.map((day) => {
           const isFuture = differenceInDays(day, today) > 0;
@@ -78,7 +78,7 @@ const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({ submissionDates }) =>
           return (
             <div
               key={day.toString()}
-              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-sm ${getIntensityClass(day)}`}
+              className={`w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-sm ${getCellClass(day)}`}
               onMouseEnter={(e) => handleMouseEnter(day, e)}
               onMouseLeave={handleMouseLeave}
             />
@@ -87,8 +87,10 @@ const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({ submissionDates }) =>
       </div>
       <div className="flex justify-end items-center mt-4 text-xs text-gray-500 space-x-2">
           <span>Less</span>
-          <div className="w-3 h-3 bg-gray-700 rounded-sm"></div>
-          <div className="w-3 h-3 bg-emerald-500 rounded-sm"></div>
+          <div className="w-3 h-3 bg-gray-800 rounded-sm"></div>
+          <div className="w-3 h-3 bg-teal-800 rounded-sm"></div>
+          <div className="w-3 h-3 bg-teal-600 rounded-sm"></div>
+          <div className="w-3 h-3 bg-teal-400 rounded-sm"></div>
           <span>More</span>
       </div>
     </div>

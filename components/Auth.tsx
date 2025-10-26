@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase } from '../services/supabase';
 
@@ -33,10 +32,10 @@ const AuthComponent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
-      <div className="w-full max-w-md p-8 space-y-8 bg-gray-800 rounded-lg shadow-lg">
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-md p-8 space-y-8 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-700">
         <div>
-          <h2 className="text-3xl font-extrabold text-center text-white">
+          <h2 className="text-3xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
             {isLogin ? 'Welcome Back!' : 'Create an Account'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-400">
@@ -52,7 +51,7 @@ const AuthComponent: React.FC = () => {
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-700 bg-gray-900 text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm rounded-t-md"
+                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-700 bg-gray-900/70 text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm rounded-t-md"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -65,7 +64,7 @@ const AuthComponent: React.FC = () => {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-700 bg-gray-900 text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm rounded-b-md"
+                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-700 bg-gray-900/70 text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm rounded-b-md"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -80,7 +79,7 @@ const AuthComponent: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 focus:ring-offset-gray-800 disabled:bg-emerald-800 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-gray-800 disabled:bg-teal-800 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="w-5 h-5 border-2 border-dashed rounded-full animate-spin"></span>
@@ -97,7 +96,7 @@ const AuthComponent: React.FC = () => {
                 setError(null);
                 setMessage(null);
             }}
-            className="font-medium text-emerald-400 hover:text-emerald-300"
+            className="font-medium text-teal-400 hover:text-teal-300 transition-colors"
           >
             {isLogin ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
           </button>
