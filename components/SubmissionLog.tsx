@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Submission } from '../types';
 
@@ -15,6 +15,18 @@ const difficultyColors: { [key in Submission['difficulty']]: string } = {
 };
 
 const SubmissionLog: React.FC<SubmissionLogProps> = ({ submissions, onEdit, onDelete }) => {
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const sortedSubmissions = useMemo(() => {
+    return [...submissions].sort((a, b) => {
+      const dateA = parseISO(a.date).getTime();
+      const dateB = parseISO(b.date).getTime();
+      if (sortOrder === 'asc') {
+        return dateA - dateB;
+      }
+      return dateB - dateA;
+    });
+  }, [submissions, sortOrder]);
 
   if (submissions.length === 0) {
     return <p className="text-center text-gray-400">You haven't logged any submissions yet. Log one to get started!</p>;
@@ -28,14 +40,32 @@ const SubmissionLog: React.FC<SubmissionLogProps> = ({ submissions, onEdit, onDe
             <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-300 sm:pl-6">Problem</th>
             <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-300">Difficulty</th>
             <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-300 hidden md:table-cell">Platform</th>
-            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-300">Date</th>
+            <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-300">
+              <button
+                onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+                className="inline-flex items-center group focus:outline-none hover:text-white transition-colors"
+              >
+                <span>Date</span>
+                <span className="ml-1 text-gray-500 group-hover:text-white transition-colors">
+                  {sortOrder === 'desc' ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  )}
+                </span>
+              </button>
+            </th>
             <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
               <span className="sr-only">Actions</span>
             </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-800 bg-gray-900/50">
-          {submissions.map((submission) => (
+          {sortedSubmissions.map((submission) => (
             <tr key={submission.id} className="border-l-2 border-transparent hover:border-teal-500 hover:bg-gray-800/40 transition-all duration-200">
               <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">
                 {submission.link ? (

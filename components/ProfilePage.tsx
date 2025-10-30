@@ -32,10 +32,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profile, user, totalSubmissio
     const [newUsername, setNewUsername] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
     const [updateMessage, setUpdateMessage] = useState('');
+    
+    const [streakGoal, setStreakGoal] = useState<number>(30);
+    const [isGoalUpdating, setIsGoalUpdating] = useState(false);
+    const [goalUpdateMessage, setGoalUpdateMessage] = useState('');
+
 
     useEffect(() => {
         if (profile) {
             setNewUsername(profile.username || '');
+            setStreakGoal(profile.streak_goal || 30);
         }
     }, [profile]);
 
@@ -66,7 +72,39 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profile, user, totalSubmissio
         }
     };
     
+    const handleGoalUpdate = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!user || streakGoal < 1 || streakGoal === profile?.streak_goal) {
+            return;
+        }
+
+        setIsGoalUpdating(true);
+        setGoalUpdateMessage('');
+
+        try {
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ streak_goal: streakGoal })
+                .eq('id', user.id);
+
+            if (updateError) throw updateError;
+
+            setGoalUpdateMessage('Streak goal updated!');
+            onDataRefresh();
+        } catch (err: any) {
+            setGoalUpdateMessage(`Error: ${err.message}`);
+        } finally {
+            setIsGoalUpdating(false);
+            setTimeout(() => setGoalUpdateMessage(''), 3000);
+        }
+    }
+
     const cardStyles = "bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700";
+    
+    const currentStreak = profile?.current_streak ?? 0;
+    const goal = profile?.streak_goal ?? 30;
+    const progressPercentage = goal > 0 ? Math.min(100, (currentStreak / goal) * 100) : 0;
+
 
     return (
         <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 font-sans">
@@ -135,6 +173,42 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profile, user, totalSubmissio
                                 </div>
                             </div>
                             {updateMessage && <p className={`text-sm mt-2 ${updateMessage.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>{updateMessage}</p>}
+                        </form>
+                    </div>
+
+                    <div className={cardStyles}>
+                        <h3 className="text-lg font-bold text-gray-200">Streak Goal</h3>
+                        <div className="my-4">
+                            <div className="flex justify-between items-end mb-1">
+                                <span className="text-base font-medium text-teal-300">Progress</span>
+                                <span className="text-sm font-medium text-gray-400">
+                                    {currentStreak} / {goal} days
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-2.5">
+                                <div className="bg-teal-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
+                            </div>
+                        </div>
+                        <form onSubmit={handleGoalUpdate} className="mt-6">
+                             <label htmlFor="streak_goal" className="block text-sm font-medium text-gray-400 mb-1">Set new goal</label>
+                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                <input
+                                    id="streak_goal"
+                                    type="number"
+                                    min="1"
+                                    value={streakGoal}
+                                    onChange={(e) => setStreakGoal(Number(e.target.value))}
+                                    className="w-full bg-gray-900/70 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={isGoalUpdating || streakGoal === (profile?.streak_goal || 30) || streakGoal < 1}
+                                    className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 focus:ring-offset-gray-800 disabled:bg-teal-800 disabled:cursor-not-allowed"
+                                >
+                                    {isGoalUpdating ? 'Saving...' : 'Set Goal'}
+                                </button>
+                            </div>
+                            {goalUpdateMessage && <p className={`text-sm mt-2 ${goalUpdateMessage.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>{goalUpdateMessage}</p>}
                         </form>
                     </div>
                     

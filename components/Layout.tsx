@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Profile, Submission } from '../types';
+import { startOfDay, parseISO, addDays, isSameDay } from 'date-fns';
 
 import Dashboard from './Dashboard';
 import SubmissionsPage from './SubmissionsPage';
@@ -40,7 +41,6 @@ const Layout: React.FC = () => {
                 .eq('id', user.id)
                 .single();
             if (profileError && profileError.code !== 'PGRST116') throw profileError;
-            setProfile(profileData);
 
             const { data: submissionData, error: submissionError } = await supabase
                 .from('submissions')
@@ -48,6 +48,47 @@ const Layout: React.FC = () => {
                 .eq('user_id', user.id)
                 .order('date', { ascending: false });
             if (submissionError) throw submissionError;
+
+            // --- Streak Verification Logic ---
+            if (profileData && submissionData && submissionData.length > 0) {
+                const latestSubmissionDateStr = submissionData[0].date;
+                const latestSubmissionDate = startOfDay(parseISO(latestSubmissionDateStr));
+                const today = startOfDay(new Date());
+                const yesterday = addDays(today, -1);
+
+                const isLatestSubmissionToday = isSameDay(latestSubmissionDate, today);
+                const isLatestSubmissionYesterday = isSameDay(latestSubmissionDate, yesterday);
+
+                // If streak is > 0 but the last submission wasn't today or yesterday, reset it.
+                if (profileData.current_streak > 0 && !isLatestSubmissionToday && !isLatestSubmissionYesterday) {
+                    const { error: updateError } = await supabase
+                        .from('profiles')
+                        .update({ current_streak: 0 })
+                        .eq('id', user.id);
+
+                    if (updateError) {
+                        console.error("Failed to reset streak:", updateError.message);
+                    } else {
+                        // Mutate profileData for immediate UI update
+                        profileData.current_streak = 0;
+                    }
+                }
+            } else if (profileData && submissionData?.length === 0 && profileData.current_streak > 0) {
+                // Edge case: User has no submissions, but streak is > 0. Reset it.
+                const { error: updateError } = await supabase
+                    .from('profiles')
+                    .update({ current_streak: 0 })
+                    .eq('id', user.id);
+
+                if (updateError) {
+                    console.error("Failed to reset streak:", updateError.message);
+                } else {
+                    profileData.current_streak = 0;
+                }
+            }
+            // --- End of Streak Logic ---
+
+            setProfile(profileData);
             setSubmissions(submissionData);
 
         } catch (err: any) {
@@ -98,11 +139,18 @@ const Layout: React.FC = () => {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
                         </NavIcon>
                     </button>
-                    <button onClick={() => setActiveView('submissions')} className="p-2 rounded-lg group transition-colors">
-                         <NavIcon isActive={activeView === 'submissions'}>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-                        </NavIcon>
-                    </button>
+                    <div className="relative">
+                        <button onClick={() => setActiveView('submissions')} className="p-2 rounded-lg group transition-colors">
+                             <NavIcon isActive={activeView === 'submissions'}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                            </NavIcon>
+                        </button>
+                        {!loading && submissions.length > 0 && (
+                            <span className="absolute top-1 right-1 flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs font-bold text-white bg-teal-600 rounded-full border-2 border-gray-800">
+                                {submissions.length}
+                            </span>
+                        )}
+                    </div>
                     <button onClick={() => setActiveView('profile')} className="p-2 rounded-lg group transition-colors">
                         <NavIcon isActive={activeView === 'profile'}>
                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>

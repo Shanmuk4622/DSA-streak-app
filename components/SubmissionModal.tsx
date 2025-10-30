@@ -1,8 +1,8 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { format } from 'date-fns';
-import { Database, Submission } from '../types';
+import { format, startOfDay, parseISO, addDays, isSameDay } from 'date-fns';
+import { Database, Submission, Profile } from '../types';
 
 type SubmissionInsert = Database['public']['Tables']['submissions']['Insert'];
 type SubmissionUpdate = Database['public']['Tables']['submissions']['Update'];
@@ -100,6 +100,50 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClose, onSu
           setLoading(false);
           return;
         }
+
+        // --- STREAK UPDATE LOGIC ---
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('current_streak, longest_streak')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) throw profileError;
+        if (!profileData) throw new Error("Profile not found to update streak.");
+
+        const { data: latestSubmissions, error: subsError } = await supabase
+          .from('submissions')
+          .select('date')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+          .limit(2);
+
+        if (subsError) throw subsError;
+        
+        let newCurrentStreak = 1;
+        // Check if the submission prior to today's was yesterday to continue the streak
+        if (latestSubmissions && latestSubmissions.length > 1) {
+            const previousDate = startOfDay(parseISO(latestSubmissions[1].date));
+            const yesterday = addDays(startOfDay(new Date()), -1);
+            if (isSameDay(previousDate, yesterday)) {
+                newCurrentStreak = profileData.current_streak + 1;
+            }
+        }
+        
+        const newLongestStreak = Math.max(profileData.longest_streak, newCurrentStreak);
+
+        const profileUpdate: Partial<Profile> = {
+            current_streak: newCurrentStreak,
+            longest_streak: newLongestStreak,
+        };
+        
+        const { error: updateProfileError } = await supabase
+            .from('profiles')
+            .update(profileUpdate)
+            .eq('id', user.id);
+
+        if (updateProfileError) throw updateProfileError;
+        // --- END STREAK UPDATE LOGIC ---
       }
       onSuccess();
     } catch (err: any) {

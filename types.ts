@@ -16,6 +16,7 @@ export interface Database {
           username: string | null
           current_streak: number
           longest_streak: number
+          streak_goal: number
         }
         Insert: {
           id: string
@@ -23,6 +24,7 @@ export interface Database {
           username?: string | null
           current_streak?: number
           longest_streak?: number
+          streak_goal?: number
         }
         Update: {
           id?: string
@@ -30,6 +32,7 @@ export interface Database {
           username?: string | null
           current_streak?: number
           longest_streak?: number
+          streak_goal?: number
         }
         Relationships: [
           {
