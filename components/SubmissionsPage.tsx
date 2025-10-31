@@ -26,7 +26,6 @@ const SubmissionsPage: React.FC<SubmissionsPageProps> = ({ submissions, onDataRe
     };
 
     const handleOpenNewModal = () => {
-        if (hasLoggedToday) return; // Safeguard in case button is not disabled
         setSubmissionToEdit(null);
         setIsModalOpen(true);
     };
@@ -67,10 +66,9 @@ const SubmissionsPage: React.FC<SubmissionsPageProps> = ({ submissions, onDataRe
                     </div>
                     <button
                         onClick={handleOpenNewModal}
-                        disabled={hasLoggedToday}
-                        className="text-lg font-bold bg-teal-600 text-white rounded-lg px-6 py-3 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-gray-800 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100"
+                        className="text-lg font-bold bg-teal-600 text-white rounded-lg px-6 py-3 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-gray-800"
                     >
-                        {hasLoggedToday ? 'Completed Today!' : 'Log New Submission'}
+                        {hasLoggedToday ? 'Log Another Submission' : 'Log New Submission'}
                     </button>
                 </header>
 

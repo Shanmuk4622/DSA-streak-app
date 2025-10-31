@@ -81,24 +81,6 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClose, onSu
         // Insert new submission
         const todayUTC = format(new Date(), 'yyyy-MM-dd');
 
-        // Proactively check if a submission for today already exists
-        const { data: existingSubmission, error: checkError } = await supabase
-            .from('submissions')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('date', todayUTC)
-            .limit(1);
-
-        if (checkError) {
-            throw checkError;
-        }
-
-        if (existingSubmission && existingSubmission.length > 0) {
-            setError('You have already logged a submission for today.');
-            setLoading(false);
-            return;
-        }
-        
         const submissionInsertData: SubmissionInsert = {
           user_id: user.id,
           date: todayUTC,
@@ -110,14 +92,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClose, onSu
         };
         const { error: insertError } = await supabase.from('submissions').insert(submissionInsertData);
         if (insertError) {
-          // This is a fallback for race conditions, but the proactive check should catch most cases.
-          if (insertError.code === '23505') {
-             setError('You have already logged a submission for today.');
-          } else {
-              throw insertError;
-          }
-          setLoading(false);
-          return;
+            throw insertError;
         }
       }
       onSuccess();
