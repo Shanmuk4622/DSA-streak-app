@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Profile, Submission } from '../types';
-import { startOfDay, parseISO, addDays, isSameDay } from 'date-fns';
+import { startOfDay, parseISO, differenceInDays, format } from 'date-fns';
 
 import Dashboard from './Dashboard';
 import SubmissionsPage from './SubmissionsPage';
@@ -10,7 +10,65 @@ import ProfilePage from './ProfilePage';
 
 type View = 'dashboard' | 'submissions' | 'profile';
 
-// Fix: Changed component definition to use a standard interface and React.FC for better type inference.
+/**
+ * Calculates the current and longest streaks based on a list of submission dates.
+ * This function is robust and recalculates from scratch.
+ */
+const calculateStreaks = (submissionDates: string[]): { currentStreak: number; longestStreak: number } => {
+    if (!submissionDates || submissionDates.length === 0) {
+        return { currentStreak: 0, longestStreak: 0 };
+    }
+
+    // 1. Get unique, sorted dates. Parsing them ensures they are treated consistently.
+    const dates = [
+        ...new Set(submissionDates.map(d => format(parseISO(d), 'yyyy-MM-dd')))
+    ]
+    .map(d => parseISO(d))
+    .sort((a, b) => a.getTime() - b.getTime()); // Sort ascending
+
+    if (dates.length === 0) {
+        return { currentStreak: 0, longestStreak: 0 };
+    }
+
+    // 2. Calculate longest streak
+    let longestStreak = 0;
+    if (dates.length > 0) {
+        longestStreak = 1;
+        let currentRun = 1;
+        for (let i = 1; i < dates.length; i++) {
+            // Check if the current date is exactly one day after the previous one
+            if (differenceInDays(dates[i], dates[i - 1]) === 1) {
+                currentRun++;
+            } else {
+                longestStreak = Math.max(longestStreak, currentRun);
+                currentRun = 1; // Reset for the new run
+            }
+        }
+        longestStreak = Math.max(longestStreak, currentRun); // Check the last run
+    }
+
+    // 3. Calculate current streak
+    let currentStreak = 0;
+    const today = startOfDay(new Date());
+    const lastSubmissionDate = dates[dates.length - 1];
+    
+    // Streak is only "current" if the last submission was today or yesterday.
+    if (differenceInDays(today, lastSubmissionDate) <= 1) {
+        currentStreak = 1;
+        // Go backwards from the most recent submission
+        for (let i = dates.length - 2; i >= 0; i--) {
+            if (differenceInDays(dates[i + 1], dates[i]) === 1) {
+                currentStreak++;
+            } else {
+                break; // Streak is broken
+            }
+        }
+    }
+    
+    return { currentStreak, longestStreak };
+};
+
+
 interface NavIconProps {
     children: React.ReactNode;
     isActive: boolean;
@@ -49,47 +107,31 @@ const Layout: React.FC = () => {
                 .order('date', { ascending: false });
             if (submissionError) throw submissionError;
 
-            // --- Streak Verification Logic ---
-            if (profileData && submissionData && submissionData.length > 0) {
-                const latestSubmissionDateStr = submissionData[0].date;
-                const latestSubmissionDate = startOfDay(parseISO(latestSubmissionDateStr));
-                const today = startOfDay(new Date());
-                const yesterday = addDays(today, -1);
+            // --- New Robust Streak Calculation ---
+            if (profileData && submissionData) {
+                const submissionDates = submissionData.map(s => s.date);
+                const { currentStreak, longestStreak } = calculateStreaks(submissionDates);
 
-                const isLatestSubmissionToday = isSameDay(latestSubmissionDate, today);
-                const isLatestSubmissionYesterday = isSameDay(latestSubmissionDate, yesterday);
-
-                // If streak is > 0 but the last submission wasn't today or yesterday, reset it.
-                if (profileData.current_streak > 0 && !isLatestSubmissionToday && !isLatestSubmissionYesterday) {
+                // If calculated streaks differ from DB, update the DB.
+                if (profileData.current_streak !== currentStreak || profileData.longest_streak !== longestStreak) {
                     const { error: updateError } = await supabase
                         .from('profiles')
-                        .update({ current_streak: 0 })
+                        .update({ current_streak: currentStreak, longest_streak: longestStreak })
                         .eq('id', user.id);
 
                     if (updateError) {
-                        console.error("Failed to reset streak:", updateError.message);
+                        console.error("Failed to update streaks:", updateError.message);
                     } else {
                         // Mutate profileData for immediate UI update
-                        profileData.current_streak = 0;
+                        profileData.current_streak = currentStreak;
+                        profileData.longest_streak = longestStreak;
                     }
-                }
-            } else if (profileData && submissionData?.length === 0 && profileData.current_streak > 0) {
-                // Edge case: User has no submissions, but streak is > 0. Reset it.
-                const { error: updateError } = await supabase
-                    .from('profiles')
-                    .update({ current_streak: 0 })
-                    .eq('id', user.id);
-
-                if (updateError) {
-                    console.error("Failed to reset streak:", updateError.message);
-                } else {
-                    profileData.current_streak = 0;
                 }
             }
             // --- End of Streak Logic ---
 
             setProfile(profileData);
-            setSubmissions(submissionData);
+            setSubmissions(submissionData || []);
 
         } catch (err: any) {
             setError(err.message);

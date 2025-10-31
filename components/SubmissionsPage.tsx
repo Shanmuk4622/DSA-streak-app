@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { Submission } from '../types';
 import SubmissionModal from './SubmissionModal';
 import SubmissionLog from './SubmissionLog';
+import { format } from 'date-fns';
 
 interface SubmissionsPageProps {
     submissions: Submission[];
@@ -14,8 +15,19 @@ const SubmissionsPage: React.FC<SubmissionsPageProps> = ({ submissions, onDataRe
     const [submissionToEdit, setSubmissionToEdit] = useState<Submission | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    const hasLoggedToday = useMemo(() => {
+        const todayUTC = format(new Date(), 'yyyy-MM-dd');
+        return submissions.some(s => s.date === todayUTC);
+    }, [submissions]);
+
     const handleOpenEditModal = (submission: Submission) => {
         setSubmissionToEdit(submission);
+        setIsModalOpen(true);
+    };
+
+    const handleOpenNewModal = () => {
+        if (hasLoggedToday) return; // Safeguard in case button is not disabled
+        setSubmissionToEdit(null);
         setIsModalOpen(true);
     };
 
@@ -54,10 +66,11 @@ const SubmissionsPage: React.FC<SubmissionsPageProps> = ({ submissions, onDataRe
                         <p className="text-gray-400 mt-1">Review and manage your logged problems.</p>
                     </div>
                     <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="text-lg font-bold bg-teal-600 text-white rounded-lg px-6 py-3 transition-transform transform hover:scale-105"
+                        onClick={handleOpenNewModal}
+                        disabled={hasLoggedToday}
+                        className="text-lg font-bold bg-teal-600 text-white rounded-lg px-6 py-3 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-gray-800 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100"
                     >
-                        Log New Submission
+                        {hasLoggedToday ? 'Completed Today!' : 'Log New Submission'}
                     </button>
                 </header>
 
