@@ -1,7 +1,6 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { format } from 'date-fns';
 import { Database, Submission } from '../types';
 
 type SubmissionInsert = Database['public']['Tables']['submissions']['Insert'];
@@ -27,6 +26,8 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClose, onSu
   const [formData, setFormData] = useState<Partial<SubmissionInsert | SubmissionUpdate>>(INITIAL_FORM_STATE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<React.ReactNode | null>(null);
+
 
   const isEditMode = !!submissionToEdit;
 
@@ -44,6 +45,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClose, onSu
             setFormData(INITIAL_FORM_STATE);
         }
         setError(null); // Reset error on open
+        setErrorDetails(null);
     }
   }, [isOpen, isEditMode, submissionToEdit]);
 
@@ -60,6 +62,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClose, onSu
     }
     setLoading(true);
     setError(null);
+    setErrorDetails(null);
 
     try {
       if (isEditMode) {
@@ -78,26 +81,40 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClose, onSu
         if (updateError) throw updateError;
 
       } else {
-        // Insert new submission
-        const todayUTC = format(new Date(), 'yyyy-MM-dd');
-
+        // Create new submission.
         const submissionInsertData: SubmissionInsert = {
           user_id: user.id,
-          date: todayUTC,
-          problem_name: formData.problem_name,
+          date: new Date().toISOString(),
+          problem_name: formData.problem_name!,
           difficulty: formData.difficulty as 'Easy' | 'Medium' | 'Hard',
           link: formData.link || null,
           platform: formData.platform || null,
           description: formData.description || null,
         };
-        const { error: insertError } = await supabase.from('submissions').insert(submissionInsertData);
+
+        const { error: insertError } = await supabase.from('submissions').insert([submissionInsertData]);
+        
         if (insertError) {
             throw insertError;
         }
       }
       onSuccess();
     } catch (err: any) {
-      setError(err.message);
+      console.error("Submission failed:", err);
+      if (err.code === '23505') { // Unique constraint violation
+        setError("Multiple Submissions Blocked by Database Rule");
+        setErrorDetails(
+            <div className="mt-2 text-left bg-gray-900/50 p-4 rounded-md border border-red-500/30">
+                <p className="text-gray-300 text-sm">Your Supabase table has a unique constraint that prevents more than one submission per day.</p>
+                <p className="text-gray-300 text-sm mt-2 font-medium">To fix this permanently, please run this SQL command in your Supabase SQL Editor:</p>
+                <pre className="bg-gray-950 text-emerald-300 p-2 rounded-md mt-2 text-xs overflow-x-auto">
+                    <code>ALTER TABLE public.submissions DROP CONSTRAINT submissions_user_id_date_key;</code>
+                </pre>
+            </div>
+        );
+      } else {
+        setError(`An error occurred: ${err.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -138,7 +155,8 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({ isOpen, onClose, onSu
             <textarea name="description" id="description" rows={3} value={formData.description || ''} onChange={handleChange} className="mt-1 block w-full bg-gray-900/70 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-teal-500 focus:border-teal-500"></textarea>
           </div>
           
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          {error && <div className="text-red-400 text-sm text-center font-semibold">{error}</div>}
+          {errorDetails}
           
           <div className="flex justify-end pt-4 space-x-3">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700/80 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-offset-gray-800">Cancel</button>

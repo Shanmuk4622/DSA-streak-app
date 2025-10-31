@@ -65,6 +65,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profile, user, totalSubmissio
             setUpdateMessage('Username updated successfully!');
             onDataRefresh();
         } catch (err: any) {
+            console.error("Error updating username:", err);
             setUpdateMessage(`Error: ${err.message}`);
         } finally {
             setIsUpdating(false);
@@ -92,6 +93,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ profile, user, totalSubmissio
             setGoalUpdateMessage('Streak goal updated!');
             onDataRefresh();
         } catch (err: any) {
+            console.error("Error updating streak goal:", err);
             setGoalUpdateMessage(`Error: ${err.message}`);
         } finally {
             setIsGoalUpdating(false);

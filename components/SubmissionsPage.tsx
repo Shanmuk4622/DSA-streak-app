@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { supabase } from '../services/supabase';
 import { Submission } from '../types';
 import SubmissionModal from './SubmissionModal';
 import SubmissionLog from './SubmissionLog';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface SubmissionsPageProps {
     submissions: Submission[];
@@ -13,11 +12,11 @@ interface SubmissionsPageProps {
 const SubmissionsPage: React.FC<SubmissionsPageProps> = ({ submissions, onDataRefresh }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [submissionToEdit, setSubmissionToEdit] = useState<Submission | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<React.ReactNode | null>(null);
 
     const hasLoggedToday = useMemo(() => {
         const todayUTC = format(new Date(), 'yyyy-MM-dd');
-        return submissions.some(s => s.date === todayUTC);
+        return submissions.some(s => format(parseISO(s.created_at), 'yyyy-MM-dd') === todayUTC);
     }, [submissions]);
 
     const handleOpenEditModal = (submission: Submission) => {
@@ -33,18 +32,6 @@ const SubmissionsPage: React.FC<SubmissionsPageProps> = ({ submissions, onDataRe
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setSubmissionToEdit(null);
-    };
-
-    const handleDeleteSubmission = async (submissionId: number) => {
-        if (window.confirm('Are you sure you want to delete this submission? This action may affect your streak and cannot be undone.')) {
-            try {
-                const { error: deleteError } = await supabase.from('submissions').delete().eq('id', submissionId);
-                if (deleteError) throw deleteError;
-                onDataRefresh();
-            } catch (err: any) {
-                setError(`Failed to delete submission: ${err.message}`);
-            }
-        }
     };
 
     return (
@@ -75,7 +62,7 @@ const SubmissionsPage: React.FC<SubmissionsPageProps> = ({ submissions, onDataRe
                 {error && <div className="bg-red-900 border border-red-600 text-red-100 px-4 py-3 rounded-md mb-6" role="alert">{error}</div>}
 
                 <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700">
-                    <SubmissionLog submissions={submissions} onEdit={handleOpenEditModal} onDelete={handleDeleteSubmission} />
+                    <SubmissionLog submissions={submissions} onEdit={handleOpenEditModal} />
                 </div>
             </div>
         </>

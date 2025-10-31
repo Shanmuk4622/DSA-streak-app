@@ -93,47 +93,77 @@ const Layout: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const { data: profileData, error: profileError } = await supabase
+            let profileData: Profile | null = null;
+    
+            const { data: existingProfile, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', user.id)
                 .single();
-            if (profileError && profileError.code !== 'PGRST116') throw profileError;
-
+    
+            if (profileError && profileError.code === 'PGRST116') {
+                // Profile does not exist, create it. This is expected for new users.
+                const { data: newProfile, error: insertError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: user.id,
+                        username: user.email?.split('@')[0] || `user_${user.id.substring(0, 8)}`,
+                        current_streak: 0,
+                        longest_streak: 0,
+                        streak_goal: 30,
+                    })
+                    .select()
+                    .single();
+    
+                if (insertError) {
+                    console.error("Error creating profile:", insertError);
+                    throw insertError;
+                }
+                profileData = newProfile;
+            } else if (profileError) {
+                // A different error occurred while fetching profile
+                throw profileError;
+            } else {
+                // Profile found successfully
+                profileData = existingProfile;
+            }
+    
             const { data: submissionData, error: submissionError } = await supabase
                 .from('submissions')
                 .select('*')
                 .eq('user_id', user.id)
-                .order('date', { ascending: false });
+                .order('created_at', { ascending: false });
             if (submissionError) throw submissionError;
-
-            // --- New Robust Streak Calculation ---
+    
+            // --- Robust Streak Calculation ---
             if (profileData && submissionData) {
-                const submissionDates = submissionData.map(s => s.date);
+                const submissionDates = submissionData.map(s => s.created_at);
                 const { currentStreak, longestStreak } = calculateStreaks(submissionDates);
-
+    
                 // If calculated streaks differ from DB, update the DB.
                 if (profileData.current_streak !== currentStreak || profileData.longest_streak !== longestStreak) {
-                    const { error: updateError } = await supabase
+                    const { data: updatedProfile, error: updateError } = await supabase
                         .from('profiles')
                         .update({ current_streak: currentStreak, longest_streak: longestStreak })
-                        .eq('id', user.id);
-
+                        .eq('id', user.id)
+                        .select()
+                        .single();
+    
                     if (updateError) {
                         console.error("Failed to update streaks:", updateError.message);
                     } else {
                         // Mutate profileData for immediate UI update
-                        profileData.current_streak = currentStreak;
-                        profileData.longest_streak = longestStreak;
+                        profileData = updatedProfile;
                     }
                 }
             }
             // --- End of Streak Logic ---
-
+    
             setProfile(profileData);
             setSubmissions(submissionData || []);
-
+    
         } catch (err: any) {
+            console.error("Error fetching data:", err);
             setError(err.message);
         } finally {
             setLoading(false);

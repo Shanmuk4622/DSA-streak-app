@@ -25,6 +25,7 @@ const AuthComponent: React.FC = () => {
         setMessage('Check your email for a confirmation link!');
       }
     } catch (error: any) {
+      console.error("Authentication error:", error);
       setError(error.error_description || error.message);
     } finally {
       setLoading(false);

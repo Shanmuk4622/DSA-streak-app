@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import CalendarHeatmap from './CalendarHeatmap';
 import { Profile, Submission } from '../types';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 const FireIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -73,7 +73,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ profile, submissions }) => {
-    const submissionDates = useMemo(() => new Set(submissions.map(s => s.date)), [submissions]);
+    const submissionDates = useMemo(() => new Set(submissions.map(s => format(parseISO(s.created_at), 'yyyy-MM-dd'))), [submissions]);
     
     const hasLoggedToday = useMemo(() => {
         const todayUTC = format(new Date(), 'yyyy-MM-dd');
